@@ -10,4 +10,8 @@ df1$Global_active_power <- as.numeric(as.character(df1$Global_active_power))
 png(file="plot2.png",width=480,height=480,res=72)
 plot(df1$Date,df1$Global_active_power, type="l",xlab= "",ylab="Global Active Power (kilowatts)",main = "")
 #shut down this program
+<<<<<<< HEAD
 dev.off()
+=======
+dev.off()
+>>>>>>> FETCH_HEAD

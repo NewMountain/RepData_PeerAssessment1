@@ -10,4 +10,8 @@ df1$Global_active_power <- as.numeric(as.character(df1$Global_active_power))
 png(file="plot1.png",width=480,height=480,res=72)
 plot1 <- hist(as.numeric(df1$Global_active_power),col="RED",xlab= "Global Active Power (kilowatts)",ylab="Frequency",main = "Global Active Power")
 #shut down this program
+<<<<<<< HEAD
 dev.off()
+=======
+dev.off()
+>>>>>>> FETCH_HEAD
