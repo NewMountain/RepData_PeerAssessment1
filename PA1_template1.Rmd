@@ -1,0 +1,210 @@
+---
+title: "PA1_template.Rmd"
+author: "Christopher Nyberg"
+date: "January 17, 2015"
+output: html_document
+---
+
+This is my response to the first assignment in the Reproducable Research class. For privacy reasons, I will set the working directory outside of this markdown file. With the directory set, the data must be loaded into R.
+
+```{r}
+data <- read.csv("activity.csv")
+```
+  
+Next, let's just quickly check what this file looks like.  
+
+```{r}
+head(data)
+tail(data)
+str(data)
+summary(data)
+```
+  
+Ok. That gives some idea of what is going on here. Now, as I think base R is not very intuitive, I am going to load a couple of packages from the Hadleyverse.  
+
+```{r}
+library("tidyr")
+library("dplyr")
+library("ggplot2")
+library("lubridate")
+library("grid")
+library("gridExtra")
+```
+  
+Great. Let's just move this into the dplyr wrapper for dataframes and we're off the the races.  
+
+```{r}
+df1 <- tbl_df(data)
+df1
+```
+  
+One last thing. What sort of data are we working with here?  
+
+```{r}
+sapply(df1,class)
+```
+  
+Date as factor. Likely not a dealbreaker here, but something that may need to be coerced later.  
+
+First question, make a histogram of total number of steps taken each day.  
+
+```{r}
+hist_data <- df1 %>%
+    group_by(date) %>%
+    summarise(dly.total = sum(steps))
+
+p0 <- qplot(dly.total,data=hist_data,geom = "histogram")
+p0
+```
+  
+Second question, create and report median and mean steps taken each day.  
+
+```{r}
+df2 <- df1 %>%
+    group_by(date) %>%
+    summarise(
+        total = sum(steps, na.rm=TRUE),
+        mean = mean(steps, na.rm=TRUE),
+        median = median(steps, na.rm=TRUE)
+        )
+df2
+```
+  
+Cool. So now we want to resort this data. We want to see the average steps taken at each five minute interval. Let's give it  a shot!  
+
+```{r}
+df3 <- df1 %>%
+    group_by(interval) %>%
+    summarise(
+        mean = mean(steps, na.rm=TRUE)
+        )
+df3
+
+ggplot() + geom_line(data = df3, aes(x = interval, y = mean))
+```
+  
+Great! Now we want to know which interval has the highest average number of steps.  
+
+```{r}
+filter(df3,mean==max(df3$mean))
+```
+  
+Looks like 8:35 AM is a very productive time, indeed.  
+
+Now with that out of the way, we need to deal with all of these blank values. Naturally, the first question is, how many of these NAs do I have, anyway?  
+
+```{r}
+table(is.na(df1))
+```
+  
+2,304. That is a rather large number. I guess we will need to do something about that.
+
+  Luckily, it appears all of the missing values are steps.
+  
+```{r}
+table(is.na(df1$steps))
+```
+
+  The second step is to devise a naive method of dealing with these blank values. I think I will take the mean value at each interval and use that as a plug for the NAs. Luckily for us, we can just recycle that code for df3 from above. Using that, let's create a new dataframe called dfM, short for Master Dataframe, which we will use as processed data for the rest of the study.  
+  
+```{r}
+testVal <- ifelse(is.na(df1$steps),
+                  df3$mean[
+                            match(df1$interval,df3$interval)
+                            ], 
+                  df1$steps
+                  )
+
+dfM <- data.frame(steps = testVal,date = df1$date, interval = df1$interval)
+
+tbl_df(dfM)
+```
+
+  Let's just test to really be sure our data is filled in.  
+  
+```{r}
+table(is.na(dfM))
+```
+
+  Great! Now let's re-run the analysis from above and see what the charts look like now.  
+  
+```{r}
+hist_data1 <- dfM %>%
+    group_by(date) %>%
+    summarise(dly.total = sum(steps))
+
+p1 <- qplot(dly.total,data=hist_data1,geom = "histogram")
+p1
+```
+
+  So let's see how much this has changed things.  
+  
+```{r}
+grid.arrange(p0, p1, ncol = 1, main = "A Comparison - notice the wider results around 10,000 and scale of y axis")
+```
+
+  So now let's recalculate mean and median values and see how they have changed.
+  
+```{r}
+df4 <- dfM %>%
+    group_by(date) %>%
+    summarise(
+        total = sum(steps, na.rm=TRUE),
+        mean = mean(steps, na.rm=TRUE),
+        median = median(steps, na.rm=TRUE)
+        )
+
+plot(df2$mean,type="l")
+plot(df4$mean,type="l")
+```
+
+  It doesn't look like anything has changed, except days that were blank were filled in. It appears that the missing data occurs randomly for an entire day, so the plug just fills in missing days. As an example, note how the intervals for the NA values don't occur at random, they occur sequantially throughout a single day.  
+  
+```{r}
+df1$interval[is.na(df1$steps)]
+```
+
+  Alas, the time has come where we have to coerce our time data. Luckily, lubridate takes a lot of the ugliness of working with dates out of R.  
+  
+```{r}
+dfM$date <- ymd(dfM$date)
+```
+
+  Not too bad after all. 
+  
+  Now we need to separate weekdays and weekends and see if there is any difference between the two.  
+  
+  
+```{r}
+dayType <- weekdays(dfM$date)
+dayType <- ifelse(dayType == "Sunday" | dayType =="Saturday","weekend","weekday")
+dfM1 <- cbind(dfM,dayType)
+```  
+
+  Finally, let's plot the average steps taken on weekday and weekend days by 5 minute interval.
+
+```{r}
+dfWeekday <- dfM1 %>%
+    group_by(interval) %>%
+    filter(dayType == "weekday") %>%
+    summarise(
+        mean = mean(steps, na.rm=TRUE)
+        )
+    
+dfWeekend <- dfM1 %>%
+    group_by(interval) %>%
+    filter(dayType == "weekend") %>%
+    summarise(
+        mean = mean(steps, na.rm=TRUE)
+        )
+
+p3 <- ggplot() + geom_line(data = dfWeekday, aes(x = interval, y = mean))
+
+p4 <- ggplot() + geom_line(data = dfWeekend, aes(x = interval, y = mean))
+
+grid.arrange(p3, p4, ncol = 1, main = "A Comparison - Weekdays are on top")
+```
+
+That is the report as requested.  
+
+Thank you for your time and consideration.  
