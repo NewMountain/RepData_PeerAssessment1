@@ -2,7 +2,9 @@
 title: "PA1_template.Rmd"
 author: "Christopher Nyberg"
 date: "January 17, 2015"
-output: html_document
+output:
+  html_document:
+    keep_md: yes
 ---
 
 This is my response to the first assignment in the Reproducable Research class. For privacy reasons, I will set the working directory outside of this markdown file. With the directory set, the data must be loaded into R.
